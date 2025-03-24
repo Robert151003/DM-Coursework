@@ -1,4 +1,6 @@
 import numpy as np
+import os
+from PIL import Image
 
 # Please write the optimal hyperparameter values you obtain in the global variable 'optimal_hyperparm' below. This
 # variable should contain the values when I look at your submission. I should not have to run your code to populate this
@@ -8,10 +10,11 @@ optimal_hyperparam = {}
 class COC131:
     def q1(self, filename=None):
         """
-        This function should be used to load the data. To speed-up processing in later steps, lower resolution of the
-        image to 32*32. The folder names in the root directory of the dataset are the class names. After loading the
-        dataset, you should save it into an instance variable self.x (for samples) and self.y (for labels). Both self.x
-        and self.y should be numpy arrays of dtype float.
+        This function should be used to load the data. 
+        To speed-up processing in later steps, lower resolution of the image to 32*32. 
+        The folder names in the root directory of the dataset are the class names. 
+        After loading the dataset, you should save it into an instance variable self.x (for samples) and self.y (for labels). 
+        Both self.x and self.y should be numpy arrays of dtype float.
 
         :param filename: this is the name of an actual random image in the dataset. You don't need this to load the
         dataset. This is used by me for testing your implementation.
@@ -21,8 +24,60 @@ class COC131:
         one of the folder names in the originally shared dataset.
         """
 
+        data_path = './EuroSAT_RGB'
+        data_x = []
+        data_y = []
+
+        # Process the folders
+        for className in sorted(os.listdir(data_path)): # Sorting ensures that the behaviour of processing is predictable and repeatable
+            classFolder = os.path.join(data_path, className)
+            if not os.path.isdir(classFolder):
+                continue
+            
+            # Loop over all images in that classes folder
+            for imageFile in sorted(os.listdir(classFolder)):
+                imagePath = os.path.join(classFolder, imageFile)
+
+                # Processing of images
+                try:
+                    image = Image.open(imagePath).convert('RGB') # Convert to RGB
+                    imageResize = image.resize((32, 32)) # Resize to 32x32
+                    imageArray = np.array(imageResize).astype(float).flatten() # Convert to numpy array
+
+                    data_x.append(imageArray)
+                    data_y.append(className)
+
+                except Exception as e:
+                    print(f"Error loading image {imagePath}: {e}")
+
+        self.x = np.array(data_x, dtype=float)
+        self.y = np.array(data_y)
+
+        # Checks for filename in the class
         res1 = np.zeros(1)
         res2 = ''
+
+        if filename is not None:
+            for className in sorted(os.listdir(data_path)):
+                classFolder = os.path.join(data_path, className)
+                if not os.path.isdir(classFolder):
+                    continue
+
+                tempPath = os.path.join(classFolder, filename)
+
+                # Process the image if it is found
+                if os.path.exists(tempPath):
+                    image = Image.open(tempPath).convert('RGB') # Convert to RGB
+                    imageResize = image.resize((32, 32)) # Resize to 32x32
+                    imageArray = np.array(imageResize).astype(float).flatten() # Convert to numpy array
+
+                    res1 = imageArray
+                    res2 = className
+                    break
+
+            else:
+                print(f"Filename {filename} not found in dataset")
+
 
         return res1, res2
 
