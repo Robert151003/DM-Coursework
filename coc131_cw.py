@@ -9,6 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold
 from scipy import stats
 from sklearn.manifold import LocallyLinearEmbedding
+from itertools import product
 
 # Please write the optimal hyperparameter values you obtain in the global variable 'optimal_hyperparm' below. This
 # variable should contain the values when I look at your submission. I should not have to run your code to populate this
@@ -109,146 +110,171 @@ class COC131:
 
     def q3(self, test_size=None, pre_split_data=None, hyperparam=None):
         """
-        This function should build a MLP Classifier using the dataset loaded in function 'q1' and evaluate model
-        performance. You can assume that the function 'q1' has been called prior to calling this function. This function
-        should support hyperparameter optimizations.
+        Build and evaluate an MLP Classifier, optionally performing hyperparameter optimization.
 
-        :param test_size: the proportion of the dataset that should be reserved for testing. This should be a fraction
-        between 0 and 1.
-        :param pre_split_data: Can be used to provide data already split into training and testing.
-        :param hyperparam: hyperparameter values to be tested during hyperparameter optimization.
-        :return: The function should return 1 model object and 3 numpy arrays which contain the loss, training accuracy
-        and testing accuracy after each training iteration for the best model you found.
+        :param test_size: float, fraction of data to use for testing (ignored if pre_split_data is used)
+        :param pre_split_data: tuple of (X_train, X_test, y_train, y_test)
+        :param hyperparam: dict of hyperparameter lists for grid search (e.g. {'hidden_layer_sizes': [(64,), (128, 64)]})
+        :return: best model, loss curve (np.array), training accuracy (np.array), test accuracy (np.array)
         """
 
         # Load dataset
-        X, y = self.x, self.y  
+        X, _ = self.q2(self.x) 
+        y = self.y
         encoder = LabelEncoder()
         y = encoder.fit_transform(y)
-        print(f"self.x: {self.x}, self.y: {self.y}")
-        
 
-        # Ensure y contains valid labels
-        print("Unique labels in y:", np.unique(y))
-
-        # Split dataset if not provided
         if pre_split_data:
             X_train, X_test, y_train, y_test = pre_split_data
         else:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42, stratify=y)
 
-        # Normalize the features
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        print(f"X_train shape: {X_train.shape}")
-        print(f"y_train shape: {y_train.shape}")    
-
-        # Default hyperparameters (adjusted for better convergence)
+        # Default training setup
         default_hyperparam = {
-            'hidden_layer_sizes': (128, 64),  # More layers for better learning
-            'activation': 'relu',
-            'solver': 'adam',
-            'learning_rate_init': 0.005,  # Increased learning rate
-            'max_iter': 500,  # More iterations
-            'early_stopping': True,  # Stops training if validation loss stops improving
-            'n_iter_no_change': 20  # Number of iterations without improvement before stopping
+            'solver': 'sgd',
+            'max_iter': 1,
+            'warm_start': True,
         }
-        
-        # Use provided hyperparameters if any
-        if hyperparam:
-            default_hyperparam.update(hyperparam)
 
-        # Train MLP Classifier
-        model = MLPClassifier(**default_hyperparam, random_state=42, verbose=True)
-        model.fit(X_train, y_train)
+        param_grid = hyperparam if hyperparam else {
+            'hidden_layer_sizes': [(64,), (128, 64)],
+            'learning_rate_init': [0.001],
+            'activation': ['relu']
+        }
 
-        # Extract training loss curve
-        loss_curve = np.array(model.loss_curve_)
+        classes = np.unique(y)
+        n_epochs = 2
 
-        # Compute training and testing accuracy
-        train_acc = accuracy_score(y_train, model.predict(X_train))
-        test_acc = accuracy_score(y_test, model.predict(X_test))
+        # Track the best model
+        best_model = None
+        best_test_acc = 0
+        best_loss_curve = None
+        best_train_curve = None
+        best_test_curve = None
 
-        # Convert to NumPy arrays
-        res1 = model
-        res2 = loss_curve
-        res3 = np.array([train_acc])
-        res4 = np.array([test_acc])
+        # Grid search over hyperparameters
+        keys, values = zip(*param_grid.items())
+        for combo in product(*values):
+            current_params = dict(zip(keys, combo))
+            current_params.update(default_hyperparam)
 
-        # Print accuracy for debugging
-        print("Final Training Accuracy:", train_acc)
-        print("Final Testing Accuracy:", test_acc)
+            model = MLPClassifier(**current_params, random_state=42)
 
-        return res1, res2, res3, res4
+            loss_curve = []
+            train_acc_curve = []
+            test_acc_curve = []
 
-    def q4(self):
+            for epoch in range(n_epochs):
+                model.partial_fit(X_train, y_train, classes=classes)
+
+                # Track performance per epoch
+                if hasattr(model, "loss_"):
+                    loss_curve.append(model.loss_)
+                train_acc = accuracy_score(y_train, model.predict(X_train))
+                test_acc = accuracy_score(y_test, model.predict(X_test))
+                train_acc_curve.append(train_acc)
+                test_acc_curve.append(test_acc)
+
+            final_test_acc = test_acc_curve[-1]
+            if final_test_acc > best_test_acc:
+                best_test_acc = final_test_acc
+                best_model = model
+                best_loss_curve = np.array(loss_curve)
+                best_train_curve = np.array(train_acc_curve)
+                best_test_curve = np.array(test_acc_curve)
+
+
+        return best_model, best_loss_curve, best_train_curve, best_test_curve
+
+
+    def q4(self, test_size=None, pre_split_data=None, hyperparam=None):
         """
         This function should study the impact of alpha on the performance and parameters of the model. For each value of
         alpha in the list below, train a separate MLPClassifier from scratch. Other hyperparameters for the model can
-        be set to the best values you found in 'q3'. You can assume that the function 'q1' has been called
-        prior to calling this function.
+        be set to the best values you found in 'q3'. You can assume that the function 'q1' has been called prior to
+        calling this function.
 
         :return: A dictionary with alpha values, training accuracies, and testing accuracies for visualization.
         """
-
-        alpha_values = [0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 50, 100]
         
-        # Initialize lists to store results
-        train_accuracies = []
-        test_accuracies = []
-        
-        # Load dataset (assuming q1 has already been called and self.x, self.y are set)
-        X, y = self.x, self.y
+        # Load dataset
+        X, _ = self.q2(self.x) 
+        y = self.y
         encoder = LabelEncoder()
         y = encoder.fit_transform(y)
-        
-        # Normalize features
+
+        if pre_split_data:
+            X_train, X_test, y_train, y_test = pre_split_data
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42, stratify=y)
+
         scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-        
-        # Default hyperparameters from q3
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        # Default training setup
         default_hyperparam = {
+            'solver': 'sgd',
+            'max_iter': 1,
+            'warm_start': True,
             'hidden_layer_sizes': (128, 64),
-            'activation': 'relu',
-            'solver': 'adam',
-            'learning_rate_init': 0.005,
-            'max_iter': 500,
-            'early_stopping': True,
-            'n_iter_no_change': 20
+            'learning_rate_init': 0.001,
+            'activation': 'relu'
         }
 
-        # Iterate through alpha values
-        for alpha in alpha_values:
-            # Update hyperparameters with the current alpha value
-            hyperparam = default_hyperparam.copy()
-            hyperparam['alpha'] = alpha
-            
-            # Train MLP Classifier
-            model = MLPClassifier(**hyperparam, random_state=42, verbose=False)
-            
-            # Split data into training and testing (80% train, 20% test)
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-            
-            model.fit(X_train, y_train)
-            
-            # Compute accuracies
-            train_acc = accuracy_score(y_train, model.predict(X_train))
-            test_acc = accuracy_score(y_test, model.predict(X_test))
-            
-            # Append accuracies to lists
-            train_accuracies.append(train_acc)
-            test_accuracies.append(test_acc)
-        
-        # Store results in a dictionary for easy access
-        res = {
-            'alpha_values': alpha_values,
-            'train_accuracies': train_accuracies,
-            'test_accuracies': test_accuracies
+        param_grid = hyperparam if hyperparam else {
+            'alpha': [0.0001, 0.001, 0.01, 0.1, 1],
         }
-        
-        return res
+
+        classes = np.unique(y)
+        n_epochs = 2
+
+        results = {}  # Initialize the dictionary to store results
+
+        # Grid search over hyperparameters (alphas)
+        keys, values = zip(*param_grid.items())
+        for combo in product(*values):
+            current_params = dict(zip(keys, combo))
+            current_params.update(default_hyperparam)
+
+            model = MLPClassifier(**current_params, random_state=42)
+
+            loss_curve = []
+            train_acc_curve = []
+            test_acc_curve = []
+
+            for epoch in range(n_epochs):
+                model.partial_fit(X_train, y_train, classes=classes)
+
+                # Track performance per epoch
+                if hasattr(model, "loss_"):
+                    loss_curve.append(model.loss_)
+                train_acc = accuracy_score(y_train, model.predict(X_train))
+                test_acc = accuracy_score(y_test, model.predict(X_test))
+                train_acc_curve.append(train_acc)
+                test_acc_curve.append(test_acc)
+
+            final_test_acc = test_acc_curve[-1]
+            alpha = combo[0]  # Get the current alpha value from the product
+
+            # Store results in a dictionary
+            results[alpha] = {
+                'loss_curve': np.array(loss_curve),
+                'train_acc_curve': np.array(train_acc_curve),
+                'test_acc_curve': np.array(test_acc_curve),
+            }
+
+        print(f"Results type: {type(results)}")  # Add this to check the type of `results`
+        return results
+
+
+
+
+
 
     def q5(self):
         """
