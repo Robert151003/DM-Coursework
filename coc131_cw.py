@@ -14,7 +14,19 @@ from itertools import product
 # Please write the optimal hyperparameter values you obtain in the global variable 'optimal_hyperparm' below. This
 # variable should contain the values when I look at your submission. I should not have to run your code to populate this
 # variable.
-optimal_hyperparam = {}
+optimal_hyperparam = {
+    # Default
+    'solver': 'sgd',
+    'max_iter': 1,
+    'warm_start': True,
+
+    # Optimal
+    'hidden_layer_sizes': (128, 64),
+    'learning_rate_init': 0.005,
+    'activation': 'relu',
+    'momentum': 0.95,
+    'learning_rate': 'constant'
+}
 
 class COC131:
     def q1(self, filename=None):
@@ -33,25 +45,25 @@ class COC131:
         one of the folder names in the originally shared dataset.
         """
 
-        data_path = './EuroSAT_RGB'
+        path = './EuroSAT_RGB'
         data_x = []
         data_y = []
 
-        # Process the folders
-        for className in sorted(os.listdir(data_path)): # Sorting ensures that the behaviour of processing is predictable and repeatable
-            classFolder = os.path.join(data_path, className)
+        # Process folders
+        for className in sorted(os.listdir(path)):
+            classFolder = os.path.join(path, className)
             if not os.path.isdir(classFolder):
                 continue
             
-            # Loop over all images in that classes folder
+            # Loop over all images in that class
             for imageFile in sorted(os.listdir(classFolder)):
                 imagePath = os.path.join(classFolder, imageFile)
 
-                # Processing of images
+                # Process images
                 try:
-                    image = Image.open(imagePath).convert('RGB') # Convert to RGB
-                    imageResize = image.resize((32, 32)) # Resize to 32x32
-                    imageArray = np.array(imageResize).astype(float).flatten() # Convert to numpy array
+                    image = Image.open(imagePath).convert('RGB')
+                    imageResize = image.resize((32, 32))
+                    imageArray = np.array(imageResize).astype(float).flatten()
 
                     data_x.append(imageArray)
                     data_y.append(className)
@@ -67,18 +79,18 @@ class COC131:
         res2 = ''
 
         if filename is not None:
-            for className in sorted(os.listdir(data_path)):
-                classFolder = os.path.join(data_path, className)
+            for className in sorted(os.listdir(path)):
+                classFolder = os.path.join(path, className)
                 if not os.path.isdir(classFolder):
                     continue
 
                 tempPath = os.path.join(classFolder, filename)
 
-                # Process the image if it is found
+                # Process the image if found
                 if os.path.exists(tempPath):
-                    image = Image.open(tempPath).convert('RGB') # Convert to RGB
-                    imageResize = image.resize((32, 32)) # Resize to 32x32
-                    imageArray = np.array(imageResize).astype(float).flatten() # Convert to numpy array
+                    image = Image.open(tempPath).convert('RGB')
+                    imageResize = image.resize((32, 32))
+                    imageArray = np.array(imageResize).astype(float).flatten()
 
                     res1 = imageArray
                     res2 = className
@@ -103,8 +115,8 @@ class COC131:
 
         scaler = StandardScaler()
         standardized_data = scaler.fit_transform(inp)
-        res1 = np.array(standardized_data * 2.5)  # Adjusting standard deviation to 2.5
-        res2 = scaler  # Returning the scaler object for potential reuse
+        res1 = np.array(standardized_data * 2.5)
+        res2 = scaler
 
         return res1, res2
 
@@ -140,16 +152,19 @@ class COC131:
             'warm_start': True,
         }
 
+        # Hyper-parameter optimisation (Grid search)
         param_grid = hyperparam if hyperparam else {
             'hidden_layer_sizes': [(64,), (128, 64)],
-            'learning_rate_init': [0.001],
-            'activation': ['relu']
+            'learning_rate_init': [0.001, 0.005],
+            'activation': ['relu', 'tanh'],
+            'momentum': [0.9, 0.95],
+            'learning_rate': ['constant', 'adaptive']
         }
 
         classes = np.unique(y)
-        n_epochs = 5
+        epochs = 5
 
-        # Track the best model
+        # Initialise variables to track the best model
         best_model = None
         best_test_acc = 0
         best_loss_curve = None
@@ -168,10 +183,10 @@ class COC131:
             train_acc_curve = []
             test_acc_curve = []
 
-            for epoch in range(n_epochs):
+            for epoch in range(epochs):
                 model.partial_fit(X_train, y_train, classes=classes)
 
-                # Track performance per epoch
+                # Tracks performance per epoch
                 if hasattr(model, "loss_"):
                     loss_curve.append(model.loss_)
                 train_acc = accuracy_score(y_train, model.predict(X_train))
@@ -186,8 +201,9 @@ class COC131:
                 best_loss_curve = np.array(loss_curve)
                 best_train_curve = np.array(train_acc_curve)
                 best_test_curve = np.array(test_acc_curve)
+                best_params = current_params.copy()
 
-
+        print(f"Best Parameters: {best_params}")
         return best_model, best_loss_curve, best_train_curve, best_test_curve
 
     def q4(self, test_size=None, pre_split_data=None, hyperparam=None):
@@ -221,18 +237,21 @@ class COC131:
             'max_iter': 1,
             'warm_start': True,
             'hidden_layer_sizes': (128, 64),
-            'learning_rate_init': 0.001,
-            'activation': 'relu'
+            'learning_rate_init': 0.005,
+            'activation': 'relu',
+            'momentum': 0.95,
+            'learning_rate': 'constant'
         }
 
+        # Hyper-parameter optimisation (Grid search)
         param_grid = hyperparam if hyperparam else {
             'alpha': [0.0001, 0.001, 0.01, 0.1, 1],
         }
 
         classes = np.unique(y)
-        n_epochs = 5
+        epochs = 5
 
-        results = {}  # Initialize the dictionary to store results
+        results = {}
 
         # Grid search over hyperparameters (alphas)
         keys, values = zip(*param_grid.items())
@@ -246,10 +265,10 @@ class COC131:
             train_acc_curve = []
             test_acc_curve = []
 
-            for epoch in range(n_epochs):
+            for epoch in range(epochs):
                 model.partial_fit(X_train, y_train, classes=classes)
 
-                # Track performance per epoch
+                # Tracks performance per epoch
                 if hasattr(model, "loss_"):
                     loss_curve.append(model.loss_)
                 train_acc = accuracy_score(y_train, model.predict(X_train))
@@ -257,10 +276,8 @@ class COC131:
                 train_acc_curve.append(train_acc)
                 test_acc_curve.append(test_acc)
 
-            final_test_acc = test_acc_curve[-1]
-            alpha = combo[0]  # Get the current alpha value from the product
+            alpha = combo[0]
 
-            # Store results in a dictionary
             results[alpha] = {
                 'loss_curve': np.array(loss_curve),
                 'train_acc_curve': np.array(train_acc_curve),
@@ -286,10 +303,6 @@ class COC131:
         encoder = LabelEncoder()
         y = encoder.fit_transform(y)
 
-        # Check if the data is valid
-        print("X shape:", X.shape)
-        print("y shape:", y.shape)
-
         # Define the model with the best hyperparameters from previous questions
         model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam',
                             learning_rate_init=0.005, max_iter=500, early_stopping=True, 
@@ -310,7 +323,7 @@ class COC131:
         print("Scores with Stratification:", scores_strat)
 
         # Compute p-value using a t-test
-        t_stat, p_value = stats.ttest_ind(scores_no_strat, scores_strat)
+        t_stat, p_value = stats.ttest_ind(scores_no_strat, scores_strat, equal_var=False)
 
         # Check if the p-value is significant (commonly using alpha = 0.05)
         if p_value < 0.05:
