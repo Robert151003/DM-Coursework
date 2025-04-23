@@ -147,7 +147,7 @@ class COC131:
         }
 
         classes = np.unique(y)
-        n_epochs = 2
+        n_epochs = 5
 
         # Track the best model
         best_model = None
@@ -190,7 +190,6 @@ class COC131:
 
         return best_model, best_loss_curve, best_train_curve, best_test_curve
 
-
     def q4(self, test_size=None, pre_split_data=None, hyperparam=None):
         """
         This function should study the impact of alpha on the performance and parameters of the model. For each value of
@@ -231,7 +230,7 @@ class COC131:
         }
 
         classes = np.unique(y)
-        n_epochs = 2
+        n_epochs = 5
 
         results = {}  # Initialize the dictionary to store results
 
@@ -268,13 +267,7 @@ class COC131:
                 'test_acc_curve': np.array(test_acc_curve),
             }
 
-        print(f"Results type: {type(results)}")  # Add this to check the type of `results`
         return results
-
-
-
-
-
 
     def q5(self):
         """
