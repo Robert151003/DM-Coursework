@@ -337,14 +337,9 @@ class COC131:
         :return: The function should return the data you visualize.
         """
 
-        # Use self.x for the input data
-        X = self.x  # Assuming self.x contains the flattened 32x32 images from q1
+        X = self.x
 
-        # Apply Locally Linear Embedding (LLE)
         lle = LocallyLinearEmbedding(n_neighbors=10, n_components=2, random_state=42)
-        transformed_data = lle.fit_transform(X)
+        data = lle.fit_transform(X)
 
-        
-
-        # Return the transformed data for potential further use
-        return transformed_data
+        return data
