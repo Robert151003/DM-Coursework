@@ -148,7 +148,6 @@ class COC131:
         # Default training setup
         default_hyperparam = {
             'solver': 'sgd',
-            'max_iter': 1,
             'warm_start': True,
         }
 
@@ -158,6 +157,7 @@ class COC131:
             'learning_rate_init': [0.001, 0.005],
             'activation': ['relu', 'tanh'],
             'momentum': [0.9, 0.95],
+            'max_iter': [1, 100, 500],
             'learning_rate': ['constant', 'adaptive']
         }
 
@@ -294,23 +294,19 @@ class COC131:
         encoder = LabelEncoder()
         y = encoder.fit_transform(y)
 
-        # Define the model with the best hyperparameters from previous questions
-        model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam',
-                            learning_rate_init=0.005, max_iter=500, early_stopping=True, 
-                            n_iter_no_change=20, random_state=42)
+        # Define the model
+        model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='sgd',
+                            learning_rate_init=0.005, max_iter=1, early_stopping=True, alpha=0.0001,
+                            random_state=42)
 
-        # 5-Fold Cross-Validation without Stratification (using KFold)
+        # 5-Fold Cross-Validation without Stratification
         kf = KFold(n_splits=5, shuffle=True, random_state=42)
         scores_no_strat = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
-
-        # Check the scores from KFold cross-validation
         print("Scores without Stratification:", scores_no_strat)
 
-        # 5-Fold Cross-Validation with Stratification (using StratifiedKFold)
+        # 5-Fold Cross-Validation with Stratification
         skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
         scores_strat = cross_val_score(model, X, y, cv=skf, scoring='accuracy')
-
-        # Check the scores from StratifiedKFold cross-validation
         print("Scores with Stratification:", scores_strat)
 
         # Compute p-value using a t-test
@@ -322,16 +318,10 @@ class COC131:
         else:
             result_string = 'Splitting method had no effect'
 
-        # Final testing accuracies (mean scores for both methods)
         final_accuracy_no_strat = np.mean(scores_no_strat)
         final_accuracy_strat = np.mean(scores_strat)
 
-        res1 = final_accuracy_no_strat
-        res2 = final_accuracy_strat
-        res3 = p_value
-        res4 = result_string
-
-        return res1, res2, res3, res4
+        return final_accuracy_no_strat, final_accuracy_strat, p_value, result_string
 
     def q6(self):
         """
