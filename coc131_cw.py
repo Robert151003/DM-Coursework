@@ -232,16 +232,7 @@ class COC131:
         X_test = scaler.transform(X_test)
 
         # Default training setup
-        default_hyperparam = {
-            'solver': 'sgd',
-            'max_iter': 1,
-            'warm_start': True,
-            'hidden_layer_sizes': (128, 64),
-            'learning_rate_init': 0.005,
-            'activation': 'relu',
-            'momentum': 0.95,
-            'learning_rate': 'constant'
-        }
+        default_hyperparam = optimal_hyperparam
 
         # Hyper-parameter optimisation (Grid search)
         param_grid = hyperparam if hyperparam else {
