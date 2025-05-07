@@ -29,6 +29,10 @@ optimal_hyperparam = {
 }
 
 class COC131:
+
+    def __init__(self):
+        self.hyperparam_results = []
+
     def q1(self, filename=None):
         """
         This function should be used to load the data. 
@@ -151,7 +155,7 @@ class COC131:
             'warm_start': True,
         }
 
-        # Hyper-parameter optimisation (Grid search)
+        # Hyper-parameter grid
         param_grid = hyperparam if hyperparam else {
             'hidden_layer_sizes': [(64,), (128, 64)],
             'learning_rate_init': [0.001, 0.005],
@@ -164,7 +168,10 @@ class COC131:
         classes = np.unique(y)
         epochs = 5
 
-        # Initialise variables to track the best model
+        # For storing results across hyperparameter settings
+        self.hyperparam_results = []
+
+        # Track best model
         best_model = None
         best_test_acc = 0
         best_loss_curve = None
@@ -186,13 +193,21 @@ class COC131:
             for epoch in range(epochs):
                 model.partial_fit(X_train, y_train, classes=classes)
 
-                # Tracks performance per epoch
                 if hasattr(model, "loss_"):
                     loss_curve.append(model.loss_)
                 train_acc = accuracy_score(y_train, model.predict(X_train))
                 test_acc = accuracy_score(y_test, model.predict(X_test))
                 train_acc_curve.append(train_acc)
                 test_acc_curve.append(test_acc)
+
+            # Store full results for plotting later
+            label = str(current_params)
+            self.hyperparam_results.append((
+                label,
+                np.array(loss_curve),
+                np.array(train_acc_curve),
+                np.array(test_acc_curve)
+            ))
 
             final_test_acc = test_acc_curve[-1]
             if final_test_acc > best_test_acc:
@@ -332,8 +347,11 @@ class COC131:
         """
 
         X = self.x
+        neighbors_list = [10, 30, 50]
+        data = {}
 
-        lle = LocallyLinearEmbedding(n_neighbors=10, n_components=2, random_state=42)
-        data = lle.fit_transform(X)
+        for n in neighbors_list:
+            lle = LocallyLinearEmbedding(n_neighbors=n, n_components=2, random_state=42)
+            data[n] = lle.fit_transform(X)
 
         return data
